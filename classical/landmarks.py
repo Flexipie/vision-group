@@ -1,7 +1,18 @@
-import mediapipe as mp
+import os
+import tempfile
 import numpy as np
 
-mp_face_mesh = mp.solutions.face_mesh
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    os.path.join(tempfile.gettempdir(), "vision_group_matplotlib"),
+)
+
+try:
+    import mediapipe as mp
+except ModuleNotFoundError:  # Allows feature-unit tests to run without MediaPipe.
+    mp = None
+
+mp_face_mesh = mp.solutions.face_mesh if mp is not None and hasattr(mp, "solutions") else None
 
 # ── Landmark index groups ─────────────────────────────────────────────────────
 # MediaPipe Face Mesh 468-point model
@@ -38,6 +49,12 @@ HEAD_POSE_POINTS = [
 
 class FaceLandmarkExtractor:
     def __init__(self):
+        if mp_face_mesh is None:
+            raise ImportError(
+                "mediapipe with the classic mp.solutions API is required for "
+                "FaceLandmarkExtractor. Install the pinned project dependencies "
+                "with: python -m pip install -r requirements.txt"
+            )
         self.face_mesh = mp_face_mesh.FaceMesh(
             static_image_mode=False,
             max_num_faces=1,
