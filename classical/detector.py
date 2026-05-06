@@ -127,7 +127,11 @@ class ThresholdDetector:
             score_components.append(self._head_down_frames / config.HEAD_CONSEC_FRAMES)
 
         # ── Head tilt (roll) ──────────────────────────────────────────────────
-        if not calibrating and abs(rel_roll) > config.HEAD_ROLL_THRESHOLD:
+        # Ignore frames where Euler roll looks like ±180 wrap / gimbal noise.
+        roll_ambiguous = (not calibrating) and (abs(rel_roll) > config.HEAD_ROLL_AMBIGUOUS_DEG)
+        if roll_ambiguous:
+            self._head_tilt_frames = 0
+        elif not calibrating and abs(rel_roll) > config.HEAD_ROLL_THRESHOLD:
             self._head_tilt_frames += 1
         else:
             self._head_tilt_frames = 0

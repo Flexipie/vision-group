@@ -9,7 +9,7 @@
   "precision_drowsy": 0.8486997635933806,
   "recall_drowsy": 0.7770562770562771,
   "f1_drowsy": 0.8112994350282486,
-  "roc_auc": 0.8939797262778628,
+  "roc_auc": 0.8939998924470974,
   "classification_report": {
     "alert": {
       "precision": 0.7146814404432132,

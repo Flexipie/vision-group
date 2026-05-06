@@ -1,3 +1,5 @@
+import argparse
+import os
 import cv2
 import sys
 import config
@@ -12,7 +14,20 @@ from fusion.combiner import FusionCombiner
 from ui.overlay import Overlay
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Driver fatigue detection (in-car demo).")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="On-screen debug panel (threshold / ML / CNN-LSTM / alert drivers).",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+    debug = bool(args.debug) or os.environ.get("VISION_DEBUG", "").strip() == "1"
+
     cap = cv2.VideoCapture(config.CAMERA_INDEX)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  config.FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
@@ -35,7 +50,10 @@ def main():
 
     print("[INFO] System started. Perform OPEN_PALM → THUMBS_UP to activate.")
     print("[INFO] Press 'q' to quit, 'r' to reset activation.")
+    if debug:
+        print("[INFO] Debug overlay enabled (VISION_DEBUG=1 or --debug).")
 
+    frame_idx = 0
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -43,6 +61,8 @@ def main():
             break
 
         frame = cv2.flip(frame, 1)   # mirror for natural interaction
+
+        debug_info = None
 
         # ── 1. Gesture activation ─────────────────────────────────────────────
         gesture_label, hand_landmarks = gesture_detector.process(frame)
@@ -66,28 +86,58 @@ def main():
             lm_px, lm_norm, frame_shape = face_extractor.process(frame)
 
             if lm_px is not None:
-                # Classical threshold detection
                 signal = threshold_det.detect(lm_px, frame_shape)
+                threshold_score = signal.classical_score
 
-                # Classical ML prediction (if model available)
                 fv = extract_feature_vector(lm_px, frame_shape, signal.blink_rate)
                 ml_score = classifier.predict(fv)
                 if ml_score is not None:
-                    # Blend threshold score with ML score
-                    signal.classical_score = 0.5 * signal.classical_score + 0.5 * float(ml_score)
+                    signal.classical_score = (
+                        0.5 * threshold_score + 0.5 * float(ml_score)
+                    )
+                classical_fused = signal.classical_score
 
-                # Modern CNN-LSTM prediction
                 x1, y1, x2, y2 = face_extractor.get_face_bbox(lm_px)
                 h, w = frame.shape[:2]
                 x1, y1 = max(0, x1), max(0, y1)
                 x2, y2 = min(w, x2), min(h, y2)
-                face_crop  = frame[y1:y2, x1:x2] if x2 > x1 and y2 > y1 else None
-                modern_score = modern_inf.predict(face_crop) if face_crop is not None else None
+                face_crop = frame[y1:y2, x1:x2] if x2 > x1 and y2 > y1 else None
+                modern_score = (
+                    modern_inf.predict(face_crop)
+                    if face_crop is not None
+                    else None
+                )
 
-                # Fuse scores
                 final_score, is_alert = fusion.combine(signal, modern_score)
 
-                # Audio alert (non-repeating until cleared)
+                rule_alert = bool(signal.alerts)
+                score_alert = (
+                    final_score is not None
+                    and final_score >= config.FUSION_ALERT_THRESHOLD
+                )
+                if rule_alert and score_alert:
+                    alert_summary = "RULE+SCORE"
+                elif rule_alert and signal.alerts:
+                    alert_summary = "RULE:" + signal.alerts[0]
+                elif score_alert:
+                    alert_summary = f"SCORE>={config.FUSION_ALERT_THRESHOLD:.2f}"
+                else:
+                    alert_summary = "---"
+
+                if debug:
+                    debug_info = {
+                        "threshold_score": threshold_score,
+                        "ml_score": ml_score,
+                        "classical_fused": classical_fused,
+                        "modern_score": modern_score,
+                        "modern_available": modern_inf.available,
+                        "modern_buf": modern_inf.buffer_len(),
+                        "modern_cap": modern_inf.buffer_capacity(),
+                        "final_score": final_score,
+                        "alert_summary": alert_summary,
+                        "yaw": signal.yaw,
+                    }
+
                 if is_alert and not alert_playing:
                     overlay.play_alert()
                     alert_playing = True
@@ -105,7 +155,25 @@ def main():
             gesture_label=gesture_label,
             time_remaining=state_machine.time_remaining(),
             hand_landmarks=hand_landmarks,
+            debug_info=debug_info if debug else None,
         )
+
+        if (
+            debug
+            and debug_info is not None
+            and frame_idx % config.DEBUG_LOG_EVERY_FRAMES == 0
+        ):
+            ml = debug_info["ml_score"]
+            ms = debug_info["modern_score"]
+            ml_s = f"{ml:.2f}" if ml is not None else "--"
+            mod_s = f"{ms:.2f}" if ms is not None else "--"
+            print(
+                f"[debug] Thr={debug_info['threshold_score']:.2f} "
+                f"ML={ml_s} Cls={debug_info['classical_fused']:.2f} "
+                f"Mod={mod_s} buf={debug_info['modern_buf']}/{debug_info['modern_cap']} "
+                f"final={debug_info['final_score']:.2f} "
+                f"yaw={debug_info['yaw']:+.1f} {debug_info['alert_summary']}"
+            )
 
         cv2.imshow("Driver Fatigue Detection", frame)
 
@@ -117,6 +185,8 @@ def main():
             threshold_det.reset()
             alert_playing = False
             print("[INFO] Reset — system deactivated.")
+
+        frame_idx += 1
 
     # ── Cleanup ───────────────────────────────────────────────────────────────
     cap.release()

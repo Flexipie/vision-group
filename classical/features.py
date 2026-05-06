@@ -3,6 +3,25 @@ import cv2
 from classical.landmarks import LEFT_EYE, RIGHT_EYE, MOUTH_OUTER, HEAD_POSE_POINTS
 
 
+def _refine_pose_rvec(object_points_n3, image_points_n2, camera_matrix, dist_coeffs, rvec, tvec):
+    """Refine PnP with LM when available."""
+    refined = getattr(cv2, "solvePnPRefineLM", None)
+    if refined is None:
+        return rvec, tvec
+    try:
+        rvec_ref, tvec_ref = refined(
+            object_points_n3,
+            image_points_n2.astype(np.float64),
+            camera_matrix,
+            dist_coeffs,
+            rvec,
+            tvec,
+        )
+        return rvec_ref, tvec_ref
+    except cv2.error:
+        return rvec, tvec
+
+
 # ── 3-D reference face model (generic, in mm) ─────────────────────────────────
 # Ordered to match HEAD_POSE_POINTS: nose tip, chin, left eye corner,
 # right eye corner, left mouth, right mouth.
@@ -95,6 +114,10 @@ def compute_head_pose(landmarks_px, frame_shape):
     )
     if not success:
         return 0.0, 0.0, 0.0
+
+    rvec, tvec = _refine_pose_rvec(
+        _3D_FACE_MODEL, image_points, camera_matrix, dist_coeffs, rvec, tvec
+    )
 
     rmat, _ = cv2.Rodrigues(rvec)
 

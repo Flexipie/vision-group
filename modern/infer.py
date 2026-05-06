@@ -50,6 +50,14 @@ class ModernInferencer:
         except Exception as e:
             print(f"[ModernInferencer] Failed to load weights: {e}")
 
+    def buffer_len(self):
+        """Frames currently in the temporal buffer."""
+        return len(self._buffer)
+
+    def buffer_capacity(self):
+        """Required frames before CNN-LSTM returns a score."""
+        return config.FRAME_BUFFER_SIZE
+
     def predict(self, bgr_face_crop):
         """
         Feed one face crop (BGR numpy array) per frame.

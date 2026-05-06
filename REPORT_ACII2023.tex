@@ -19,7 +19,7 @@
 
 \author{
 \IEEEauthorblockN{
-George Vashakidze, Felix Westin, Joud Taher, Kenny Tohme, William Yammine
+Blanca Vald\'{e}s, Felix Westin, George Vashakidze, Joud Taher, Kenny Tohme, William Yammine
 }
 \IEEEauthorblockA{
 \textit{Bachelor in Computer Science and Artificial Intelligence}\\
@@ -194,6 +194,10 @@ The system is intended only as a prototype for a computer vision course and shou
 This project implemented a complete computer vision system for driver fatigue detection with gesture-based activation. The system remains inactive until the user performs the correct two-gesture sequence within the time limit. After activation, it detects fatigue cues using facial landmarks, classical thresholds, a trained classical ML classifier, and a CNN-LSTM model.
 
 The classical ML model achieved a drowsy F1 score of 0.811, while the modern CNN-LSTM model achieved a drowsy F1 score of 0.794 and detected all drowsy validation sequences. These results show that the system satisfies the main project requirements and demonstrates both traditional and modern computer vision approaches. Future work should focus on collecting more diverse data and testing the system under more varied in-car conditions.
+
+\section*{Author Contributions}
+
+Felix Westin implemented the initial system architecture, including the real-time pipeline, gesture activation logic, classical fatigue detection modules, model scaffolding, fusion logic, UI overlay, and unit tests. Joud Taher collected and organized the in-car image dataset used for gesture recognition and fatigue detection experiments. Blanca Vald\'{e}s completed the final project integration by fixing the training pipeline, training and evaluating the classical and modern models, generating result plots, preparing the README, and writing the final ACII-style report. George Vashakidze tested the live camera-based detection system and helped prepare the final demonstration video, which Felix filmed, showing gesture activation and simulated fatigue detection. Kenny Tohme helped review the assignment requirements and contributed to defining the gesture-activation sequence used in the final system. William Yammine helped review the dataset categories and provided feedback on the final demonstration flow.
 
 \begin{thebibliography}{00}
 \bibitem{mediapipe}

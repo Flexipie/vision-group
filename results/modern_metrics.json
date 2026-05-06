@@ -9,8 +9,8 @@
   "pretrained": true,
   "freeze_cnn": true,
   "precompute_features": true,
-  "accuracy": 0.8194444444444444,
-  "precision_drowsy": 0.6578947368421053,
-  "recall_drowsy": 1.0,
-  "f1_drowsy": 0.7936507936507936
+  "accuracy": 0.8611111111111112,
+  "precision_drowsy": 0.7272727272727273,
+  "recall_drowsy": 0.96,
+  "f1_drowsy": 0.8275862068965517
 }

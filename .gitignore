@@ -24,6 +24,14 @@ data/features.csv
 # Results / logs
 results/fusion_log.csv
 
+# LaTeX / local build
+*.aux
+REPORT_ACII2023.log
+missfont.log
+
+# Local submission bundles (regenerate with scripts/make_submission_zip.sh)
+vision-group-submission*.zip
+
 # IDE / OS
 .DS_Store
 .idea/

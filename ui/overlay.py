@@ -130,7 +130,7 @@ class Overlay:
 
     def draw(self, frame, *, state, signal=None, final_score=None,
              is_alert=False, gesture_label=None, time_remaining=None,
-             hand_landmarks=None):
+             hand_landmarks=None, debug_info=None):
         h, w = frame.shape[:2]
 
         # Always draw hand skeleton if visible
@@ -142,8 +142,10 @@ class Overlay:
             # Draw eye landmarks when active and face is detected
             if signal is not None and hasattr(signal, '_lm_px') and signal._lm_px is not None:
                 draw_eye_landmarks(frame, signal._lm_px)
-            self._draw_active(frame, w, h, signal, final_score, is_alert,
-                              state, time_remaining)
+            self._draw_active(
+                frame, w, h, signal, final_score, is_alert,
+                state, time_remaining, debug_info,
+            )
 
         return frame
 
@@ -151,6 +153,38 @@ class Overlay:
         """Call from main.py to draw eye landmarks separately."""
         if landmarks_px is not None:
             draw_eye_landmarks(frame, landmarks_px)
+
+    def _draw_debug_panel(self, frame, dbg):
+        """Rule / ML / CNN-LSTM / fusion readout for demos (see main --debug)."""
+        x0, y0 = 8, 92
+        x1, y1 = 400, 186
+        _panel(frame, x0, y0, x1, y1, alpha=0.82, colour=(22, 28, 42))
+        ml = dbg.get("ml_score")
+        ml_txt = f"{ml:.2f}" if ml is not None else "--"
+        t = dbg["threshold_score"]
+        c = dbg["classical_fused"]
+        line1 = f"Thr:{t:.2f}  ML:{ml_txt}  Cls:{c:.2f}"
+        _txt(frame, line1, (x0 + 10, y0 + 22), 0.38, _C_WHITE, 1)
+
+        avail = dbg["modern_available"]
+        buf, cap = dbg["modern_buf"], dbg["modern_cap"]
+        ms = dbg["modern_score"]
+        if not avail:
+            line2 = "Mod: off (no weights)"
+        elif ms is None:
+            line2 = f"Mod: buf {buf}/{cap}"
+        else:
+            line2 = f"Mod: {ms:.2f} ({buf}/{cap})"
+        _txt(frame, line2, (x0 + 10, y0 + 44), 0.38, _C_CYAN, 1)
+
+        fin = dbg["final_score"]
+        fin_txt = f"{fin:.2f}" if fin is not None else "--"
+        line3 = f"Fin:{fin_txt}  {dbg['alert_summary']}"
+        _txt(frame, line3, (x0 + 10, y0 + 66), 0.38, _C_GREEN, 1)
+
+        yaw = dbg.get("yaw", 0.0)
+        line4 = f"Yaw:{yaw:+.1f} (cam angle)"
+        _txt(frame, line4, (x0 + 10, y0 + 88), 0.36, _C_DIM, 1)
 
     # ── Inactive screen ───────────────────────────────────────────────────────
 
@@ -190,7 +224,7 @@ class Overlay:
     # ── Active screen ─────────────────────────────────────────────────────────
 
     def _draw_active(self, frame, w, h, signal, final_score, is_alert,
-                     state="ACTIVE", time_remaining=None):
+                     state="ACTIVE", time_remaining=None, debug_info=None):
         # ── Top status bar ────────────────────────────────────────────────────
         bar_col = _C_RED if is_alert else _C_GREEN
         _panel(frame, 0, 0, w, 52, alpha=0.82,
@@ -220,6 +254,9 @@ class Overlay:
             _panel(frame, 8, 60, 250, 90, alpha=0.65)
             _txt(frame, "No face detected", (14, 82), 0.52, _C_CYAN)
             return
+
+        if debug_info:
+            self._draw_debug_panel(frame, debug_info)
 
         # ── Alert tags (below status bar) ─────────────────────────────────────
         tag_x = 10
