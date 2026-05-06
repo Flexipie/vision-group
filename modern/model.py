@@ -8,16 +8,35 @@ class FatigueNet(nn.Module):
     """
     CNN-LSTM architecture for temporal fatigue detection.
 
-    Backbone : MobileNetV2 pretrained on ImageNet → 1280-dim feature per frame
+    Backbone : MobileNetV2, optionally pretrained on ImageNet, gives one
+               1280-dim feature vector per frame.
     Temporal : 2-layer LSTM over a sliding window of FRAME_BUFFER_SIZE frames
     Head     : FC → 2 classes (0=alert, 1=drowsy)
     """
 
-    def __init__(self, hidden_size=256, num_layers=2, num_classes=2, dropout=0.3):
+    def __init__(
+        self,
+        hidden_size=256,
+        num_layers=2,
+        num_classes=2,
+        dropout=0.3,
+        pretrained=False,
+    ):
         super().__init__()
 
         # ── CNN backbone ──────────────────────────────────────────────────────
-        backbone = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
+        weights = None
+        if pretrained:
+            try:
+                weights = models.MobileNet_V2_Weights.IMAGENET1K_V1
+            except AttributeError:
+                weights = models.MobileNet_V2_Weights.DEFAULT
+
+        try:
+            backbone = models.mobilenet_v2(weights=weights)
+        except Exception as e:
+            print(f"[FatigueNet] Could not load pretrained weights ({e}); using random init.")
+            backbone = models.mobilenet_v2(weights=None)
         # Remove the classifier head; keep feature extractor
         self.cnn = backbone.features          # output: (B, 1280, 4, 4) for 112x112 input
         self.pool = nn.AdaptiveAvgPool2d((1, 1))  # → (B, 1280, 1, 1)
@@ -50,6 +69,15 @@ class FatigueNet(nn.Module):
         feats = self.cnn(x)               # (B*T, 1280, h, w)
         feats = self.pool(feats)          # (B*T, 1280, 1, 1)
         feats = feats.view(B, T, -1)      # (B, T, 1280)
+
+        return self.forward_from_features(feats)
+
+    def forward_from_features(self, feats):
+        """
+        feats: (batch, seq_len, 1280) precomputed CNN features.
+        Returns logits: (batch, num_classes)
+        """
+        B, T, D = feats.shape
 
         # Temporal modelling
         lstm_out, _ = self.lstm(feats)    # (B, T, hidden)

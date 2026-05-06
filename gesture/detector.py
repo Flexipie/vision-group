@@ -1,3 +1,11 @@
+import os
+import tempfile
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    os.path.join(tempfile.gettempdir(), "vision_group_matplotlib"),
+)
+
 import mediapipe as mp
 import numpy as np
 

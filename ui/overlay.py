@@ -1,5 +1,13 @@
 import cv2
 import numpy as np
+import os
+import tempfile
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    os.path.join(tempfile.gettempdir(), "vision_group_matplotlib"),
+)
+
 import mediapipe as mp
 import pygame
 from classical.landmarks import LEFT_EYE, RIGHT_EYE

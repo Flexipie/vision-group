@@ -14,10 +14,7 @@ venv/
 .venv/
 env/
 
-# Models (large binary files)
-models/*.pth
-models/*.joblib
-models/*.pkl
+# Model artifacts are coursework deliverables and are tracked via Git LFS.
 
 # Dataset / raw data
 data/raw/
